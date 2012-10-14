@@ -2,14 +2,13 @@
 (require (for-syntax racket/syntax)
          srfi/26 ffi/unsafe)
 
-(define _jint _sint32)
-(define _jlong _sint64)
-(define _jbyte _sint8)
-
 (define _jboolean (make-ctype _uint8
                               (lambda (s) (if s 1 0))
                               (lambda (c) (not (zero? c)))))
+(define _jbyte _sint8)
 (define _jchar (make-ctype _uint16 char->integer integer->char))
+(define _jint _sint32)
+(define _jlong _sint64)
 (define _jshort _sint16)
 (define _jfloat _float)
 (define _jdouble _double)
