@@ -54,6 +54,7 @@
           (char=? (string-ref (symbol->string (syntax-e #'_if-name)) 0) #\_))
      (let ((if-name (substring (symbol->string (syntax-e #'_if-name)) 1)))
        (with-syntax ((if-name-vt (format-id #'_if-name "~a-vt" if-name))
+                     (_if-name-ptr (format-id #'_if-name "_~a-pointer" if-name))
                      (_if-name_vt (format-id #'_if-name "_~a_vt" if-name))
                      (_if-name_vt-ptr (format-id #'_if-name "_~a_vt-pointer" if-name)))
          (define (want-method? method/type)
@@ -73,7 +74,7 @@
          (define (build-type type)
            (syntax-case type ()
              (() #'_fpointer)
-             ((type ...) #'(_fun _if-name type ...))))
+             ((type ...) #'(_fun _if-name-ptr type ...))))
          (with-syntax* (((wanted-method-name ...)
                          (map get-name
                               (filter want-method?
