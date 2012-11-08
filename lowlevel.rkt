@@ -1,6 +1,6 @@
 #lang racket
 (require (for-syntax racket/syntax)
-         srfi/26 ffi/unsafe)
+         srfi/26 ffi/unsafe file/resource)
 
 (define _jboolean (make-ctype _uint8
                               (lambda (s) (if s 1 0))
@@ -432,30 +432,50 @@
    (AttachCurrentThreadAsDaemon (env : (_ptr o _JNIEnv)) (_ptr i _JavaVMAttachArgs)
                         -> _jint -> env)))
 
+(define (get-registry-java-home subkey)
+  (define key (format "SOFTWARE\\JavaSoft\\~a" subkey))
+  (define version (get-resource "HKEY_LOCAL_MACHINE"
+                                (format "~a\\CurrentVersion" key)))
+  (and version (get-resource "HKEY_LOCAL_MACHINE"
+                             (format "~a\\~a\\JavaHome" key version))))
+
 (define (get-java-home)
   (cond ((getenv "JAVA_HOME"))
+        ((get-registry-java-home "Java Runtime Environment"))
+        ((get-registry-java-home "Java Development Kit"))
         ((find-executable-path "java" ".." #t)
          => (lambda (path)
               (simplify-path path #f)))
         (else #f)))
 
-(define (get-jre-lib-dir)
+(define (get-jre-subdir name)
   (cond ((get-java-home)
          => (lambda (java-home)
               (ormap (lambda (x)
                        (define subdir (build-path java-home x))
                        (and (directory-exists? subdir) subdir))
-                     '("jre/lib" "lib"))))
+                     (list (build-path "jre" name) name))))
         (else #f)))
 
 (define (get-jvm-lib-dirs)
-  (cond ((get-jre-lib-dir)
+  (cond ((get-jre-subdir "lib")
          => (lambda (jre-lib)
               (map (cut build-path jre-lib <>)
                    '("amd64/server" "i586/server" "i586/client"))))
         (else #f)))
 
-(define libjvm (ffi-lib "libjvm" #:get-lib-dirs get-jvm-lib-dirs))
+(define (get-jvm-bin-dirs)
+  (cond ((get-jre-subdir "bin")
+         => (lambda (jre-bin)
+              (map (cut build-path jre-bin <>)
+                   '("server" "client"))))
+        (else #f)))
+
+(define libjvm
+  (case (system-type)
+    ((unix) (ffi-lib "libjvm" #:get-lib-dirs get-jvm-lib-dirs))
+    ((windows) (ffi-lib "jvm" #:get-lib-dirs get-jvm-bin-dirs))))
+
 (define-syntax (define-jni stx)
   (syntax-case stx ()
     ((_ name type ...)
